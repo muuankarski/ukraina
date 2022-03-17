@@ -14,6 +14,9 @@ library(dplyr)
 
 
 world <- ne_countries(returnclass = "sf")
+# Suomenkieliset maanimet
+world$cldr.short.fi <- countrycode::countryname(sourcevar = world$name, destination = "cldr.short.fi")
+
 bbox <- st_as_sfc(st_bbox(obj = c(xmin = 19.1,
                                   xmax = 50.3,
                                   
@@ -21,55 +24,26 @@ bbox <- st_as_sfc(st_bbox(obj = c(xmin = 19.1,
                                   ymin = 71.9), 
                           crs = st_crs(world)))
 
-st_as_sfc
-
-
 lon = c(756065.70, 757428.78)
 lat = c(4074435.19,4075144.12)
 
 Poly_Coord_df = data.frame(lon, lat)
 
-
 shapew <- st_intersection(st_make_valid(world), bbox) %>% 
   # exclude countries of Ex-Jugoslavia
-  filter(!grepl("Albania|Croa|Serb|Montene|Koso|Bosni|Mace|Greec", name)) %>% 
-  mutate(group_political = case_when(
-    grepl("Nor|Swe|Fin|Tur", name) ~ "Itsenäiset valtiot",
-    grepl("Polan|Slova|Hun|Roma|Bul", name) ~ "Itsenäiset sosialistiset valtiot",
-    TRUE ~ "Neuvostoliitto"))
-shaper <- st_transform(shapew, crs = '+proj=robin +lon_0=35 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs')
+  filter(!grepl("Albania|Croa|Serb|Montene|Koso|Bosni|Mace|Greec", name))
 
-# valitaan shape
-shape <- shaper
-# nimetään suomeksi
-shape$cldr.short.fi <- countrycode::countryname(sourcevar = shape$name, destination = "cldr.short.fi")
-# piirretään asemakartta
-ggplot(shape, aes(label = cldr.short.fi, fill = group_political)) + 
-  geom_sf(color = alpha("white", 2/3), alpha = .6, show.legend = TRUE) + 
-  ggrepel::geom_text_repel(data = shape %>%
-                             sf::st_set_geometry(NULL) %>%
-                             bind_cols(shape %>% sf::st_centroid() %>% sf::st_coordinates() %>% as_tibble()),
-                           aes(label = cldr.short.fi, x = X, y = Y),
-                           family = "Lato")+
-  theme_minimal(base_family = "Lato") +
-  scale_fill_brewer(type = "qual") +
-  theme(axis.text = element_blank(),
-        axis.title = element_blank(),
-        panel.grid = element_blank(),
-        legend.position = "right") +
-  labs(title = "Analyysin aluerajaus ja alueiden poliittinen asema vuonna 1988",
-       fill = "Alueen asema vuonna 1988")
+## Tehdään maalistat
+cntry_code_adm0_a3 <- shapew$adm0_a3
+cntry_code_iso_a2 <- shapew$iso_a2
+cntry_code_iso_a3 <- shapew$iso_a3
+cntry_code_wb_a3 <- shapew$wb_a3
+cntry_code_un_a3 <- shapew$un_a3
+cntry_name <- shapew$name
+cntry_name_long <- shapew$name_long
+cntry_name_fi <- shapew$cldr.short.fi
 
-cntry_code_adm0_a3 <- shape$adm0_a3
-cntry_code_iso_a2 <- shape$iso_a2
-cntry_code_iso_a3 <- shape$iso_a3
-cntry_code_wb_a3 <- shape$wb_a3
-cntry_code_un_a3 <- shape$un_a3
-cntry_name <- shape$name
-cntry_name_long <- shape$name_long
-cntry_name_fi <- shape$cldr.short.fi
-
-cntry_id_df <- shape %>% 
+cntry_id_df <- shapew %>% 
   select(name,name_long,cldr.short.fi,adm0_a3,iso_a2,iso_a3,wb_a3,un_a3) %>% 
   st_drop_geometry()
 
@@ -96,7 +70,43 @@ cntry_id_df <- shape %>%
 # 19     Turkey             Turkey        Turkki     TUR     TR    TUR   TUR   792
 # 20    Ukraine            Ukraine       Ukraina     UKR     UA    UKR   UKR   804
 
+## Rajataan uudetaan aluenimien mukaan
 
+shape_raw <- world %>% filter(name %in% cntry_name) %>% 
+  mutate(group_political = case_when(
+    grepl("Nor|Swe|Fin|Tur", name) ~ "Itsenäiset valtiot",
+    grepl("Polan|Slova|Hun|Roma|Bul", name) ~ "Itsenäiset sosialistiset valtiot",
+    TRUE ~ "Neuvostoliitto"))
+
+bbox <- st_as_sfc(st_bbox(obj = c(xmin = 1.1,
+                                  xmax = 52.3,
+                                  
+                                  ymax = 30.0,
+                                  ymin = 71.9), 
+                          crs = st_crs(world)))
+
+shape <- st_intersection(st_make_valid(shape_raw), bbox) %>% 
+  st_transform(crs = '+proj=robin +lon_0=35 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs')
+  
+
+
+# piirretään asemakartta
+ggplot(shape, aes(label = cldr.short.fi, fill = group_political)) + 
+  geom_sf(color = alpha("white", 2/3), alpha = .6, show.legend = TRUE) + 
+  ggrepel::geom_text_repel(data = shape %>%
+                             sf::st_set_geometry(NULL) %>%
+                             bind_cols(shape %>% sf::st_centroid() %>% sf::st_coordinates() %>% as_tibble()),
+                           aes(label = cldr.short.fi, x = X, y = Y),
+                           family = "Lato")+
+  theme_minimal(base_family = "Lato") +
+  scale_fill_brewer(type = "qual") +
+  theme(axis.text = element_blank(),
+        axis.title = element_blank(),
+        panel.grid = element_blank(),
+        legend.position = "right") +
+  labs(title = "Analyysin aluerajaus ja alueiden poliittinen asema vuonna 1988",
+       fill = "Alueen asema vuonna 1988") -> p
+ggsave(filename = "./kuvat/rajaus.png", plot = p)
 
 #        _       _        _ _   _ _     _            _   
 #     __| | __ _| |_ __ _| (_)_(_) |__ | |_ ___  ___| |_ 
