@@ -1,6 +1,7 @@
 library(rnaturalearth)
 library(ggplot2)
 library(sf)
+library(fs)
 library(dplyr)
 
 
@@ -107,6 +108,32 @@ ggplot(shape, aes(label = cldr.short.fi, fill = group_political)) +
   labs(title = "Analyysin aluerajaus ja alueiden poliittinen asema vuonna 1988",
        fill = "Alueen asema vuonna 1988") -> p
 ggsave(filename = "./kuvat/rajaus.png", plot = p)
+
+# Sisäiset aluejaot
+fs::dir_create("./data")
+fs::dir_create("./data/aluejako_ukr")
+
+download.file("https://data.humdata.org/dataset/d23f529f-31e4-4021-a65b-13987e5cfb42/resource/4105bb4d-5a9d-4824-a1d7-53141cf47c44/download/ukr_adm_sspe_20220131.zip", 
+              destfile = "./data/ukr_adm_sspe_20220131.zip")
+unzip(zipfile = "./data/ukr_adm_sspe_20220131.zip", exdir = "./data/aluejako_ukr/")
+shapes <- dir_ls("./data/aluejako_ukr", glob = "*.shp")
+shapes
+# ./data/aluejako_ukr/ukr_admbnda_adm0_sspe_20220114.shp
+# ./data/aluejako_ukr/ukr_admbnda_adm1_sspe_20220114.shp
+# ./data/aluejako_ukr/ukr_admbnda_adm2_sspe_20220114.shp
+# ./data/aluejako_ukr/ukr_admbnda_adm3_sspe_20220114.shp
+# ./data/aluejako_ukr/ukr_admbnda_adm4_sspe_20220114.shp
+# ./data/aluejako_ukr/ukr_admbndl_adm0123_sspe_itos_20220114.shp
+# ./data/aluejako_ukr/ukr_admbndp_adm0123_sspe_itos_20220114.shp
+for (i in seq_along(shapes)){
+  tmp <- sf::st_read(shapes[i])
+  pp <- ggplot(tmp) + geom_sf() + labs(title = shapes[i])
+  ggsave(filename = paste0("./kuvat/aluejaot/", gsub("^.+/|\\.shp", "", shapes[i]), ".png"))  
+}
+
+
+
+
 
 #        _       _        _ _   _ _     _            _   
 #     __| | __ _| |_ __ _| (_)_(_) |__ | |_ ___  ___| |_ 
